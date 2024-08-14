@@ -1,0 +1,47 @@
+document.addEventListener('DOMContentLoaded', function() {
+    const socket = io(); // This is the Socket.IO client connection
+
+    console.log('JavaScript is running with Socket.IO!');
+
+    // You can now use the `socket` object to communicate with the server
+    if(navigator.geolocation){
+        navigator.geolocation.watchPosition((position)=>{
+            const {latitude, longitude} = position.coords;
+            socket.emit("send-location", {latitude, longitude});
+        },
+        (error) => {
+            console.log(error);
+        },
+        {
+            enableHighAccuracy: true,
+            timeout: 5000,
+            maximumAge: 0,
+        }
+    )}
+
+    const map = L.map("map").setView([0,0], 16);
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
+        attribution: "OpenStreetMap"
+    }).addTo(map)
+
+    const markers = {};
+
+    socket.on("received-location", (data)=>{
+        const {id, latitude, longitude} = data;
+        map.setView([latitude, longitude]);
+        if(markers[id]){
+            markers[id].setLatLng([latitude, longitude], 20);
+        }else{
+            markers[id] = L.marker([latitude, longitude]).addTo(map);
+        }
+    });
+
+    socket.on("user-disconnected", (id)=>{
+        if(markers[id]){
+            map.removeLayer(markers[id]);
+            delete markers[id];
+        }
+        console.log("user-disconnected");
+    })
+});
